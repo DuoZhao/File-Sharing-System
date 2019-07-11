@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>CS 1653 Project P4 Writeup</title>
+  <style>
+/* BEGIN CHANGES HERE */
+
+/* In this section, you may add CSS styling if desired */
+header {
+  text-align: center;
+}
+
+/* END CHANGES HERE */
+  </style>
+  <body>
+    <header>
+      <h1>CS 1653 Project P4 Writeup</h1>
+      <h2>
+<!-- BEGIN CHANGES HERE -->
+<font size="5">
+Dongbang Liu:   dol24  <br /> Duo Zhao:   duz5   <br /> Shixiong Jing:   shj40
+</font>
+
+<!-- END CHANGES HERE -->
+      </h2>
+    </header>
+    <section id="overview">
+      <h2>Overview</h2>
+<!-- BEGIN CHANGES HERE -->
+
+<p> <br>For T5: HMAC will defend the modification of the message. The timestamp will defend replay attack. Sequence number will defend reorder attack. </br>
+	<br>For T6: every group has a group key for encrypting files. The key is updated when membership change and the old keys are stored for old files.</br>
+	<br>For T7: Destination field will be added in the token. The file server will only accept the request if the receiver of the token is matched. </br>
+</p>
+
+<body><div align="center"><p><img src = "phase4.jpg" alt = "phase4" /></p></body>
+
+
+<!-- END CHANGES HERE -->
+    </section>
+    <section id="threat5">
+      <h2>Threat T5: Message Reorder, Replay, or Modification</h2>
+<!-- BEGIN CHANGES HERE -->
+
+<p>After the SRP authentication, a shared key KCG will be generated between Group Server and Client. After the Diffie Hellman, a shared key K will be generated between File Server and Client. Then we use key expansion algorithm to generate two different key for each section, one for the communication between the server and client, the other is for HMAC. For the key used for the communication, we still call it KCG and K. For the HMAC key, we called KCGH and KH.
+ </p>
+
+<p>The first threat is Modification of message. What we do is calculate a HMAC for each of the message. HMAC is a one way function, so the hacker could not get the plaintext message by knowing the HMAC. In addition, we used KCGH and KH to calculate the HMAC of the message, so any people who do not know the key for the HMAC cannot generate a fake HMAC to cheat server or client.
+ </p>
+
+<p>The second threat is Replay Attack. The combination of the hmac and sequence number could solve the replay attack. Because each time, the key will be change, so if the hacker replay the previous message, the server or the client could not authenticate the hmac
+</p>
+
+<p>The third threat is Reorder Attack. Reorder attacks will change the order of the message to try to mess with the system and cause an error. We decide to use a sequence number to defend reorder attack. After generating the shared key between the server and client, the sequence number will be added during the communication. The sequence number for two sections are separated and start from 0. The sequence number will be added one based on the received sequence number. If the sequence number is not the same as the expected one or the client does not receive the reply from the server in 10 seconds. The client will be terminated forcibly and the user should login the system again. 
+</p>
+
+<!-- END CHANGES HERE -->
+    </section>
+    <section id="threat6">
+      <h2>Threat T6: File Leakage</h2>
+      <p><img src = "FileShare.jpg" alt = "token"/></p>
+<!-- BEGIN CHANGES HERE -->
+
+<p>Since file servers are untrusted, files may be leaked from the file server. We cannot prohibit file servers from leaking files, so we think that the files in the file servers need to be encrypted. By encrypting files, we can promise that files leaked from the servers are not readable to attackers. In our previous system, the attacker can disguise himself as a legitimate file server and users will trust the public key of the file server and upload files to the server. Therefore, encrypting the files is necessary. 
+ </p>
+
+<p>The method that we use is to encrypt files with a group key. When a user requests to create a group, the group server create an ArrayList<SecretKey> and store a randomly generated 256 bits AES key in the ArrayList. The new group key is added into the ArrayList when there is a membership change, like “delete a user” and “remove a user from a group”. The old keys are stored so old files can be decrypted correctly and newly uploaded files are encrypted with the latest group key. In detail, when a user wants to upload a file, the group server will pass the ArrayList<SecretKey> to the file client and encrypt the files in the file client. Then, the file client uploads the encrypted files and the version of group key to the file servers. We ask users to type the group name when they upload and download files, so we do not store in the file metadata. When a user wants to download files, the file server transmits the encrypted files and the version of the key to the file client. The file client gets the version of group key from the file metadata and asks the group server for the ArrayList<SecretKey>. Then, the file client search in the ArrayList to retrieve the corresponding key to decrypt the files. In our assumption, we suppose that users do not often delete group members, so the ArrayList will get so big that searching in the ArrayList can be a disadvantage. Also, we think that the order of the key is important and ArrayList can maintain the order inherently. 
+</p>
+ 
+<p>In our discussion, we thought about another solution called “per file key”. For every file, we generate a symmetric key and encrypt the file with the specific key. We think this is a good strategy when the number of files is low and the group numbers are many. However, if there are many files and a small number of groups, there will be many keys to be stored. After discussion, we think that it will be more realistic to assume that there will be much more files than the groups, so we choose the “per group key” method.
+</p>
+
+<p>For both of methods, they both have backward security. That is to say, when users leave the group, they will not be able to download any updated files or new uploaded files. We do not need forward secrecy because deleted group members have already downloaded and decrypted files, so it will be unnecessary and impossible to provide forward secrecy.
+</p>
+<!-- END CHANGES HERE -->
+    </section>
+    <section id="threat7">
+      <h2>Threat T7: Token Theft</h2>
+<!-- BEGIN CHANGES HERE -->
+<div align="center"><p><img src = "Token.png" alt = "token"/></p>
+<p> When User asks the Group Server for a token, the destination file server's public key will be passed to the Group Server through the secure channel established by SRP. The Group Server will put the public key as a field in the token, concatenated with other fields of the token with ascii character 0x00 as spliter, and signed with Group Server private key.  As a result, each Token is generated only for communication with the assigned File Server.
+</p>
+
+<p>When the File Server receives the token, it will do an additional check on the “destination” field of the token and see if the token is indeed generated for it. If the “destination” field does not match the file server’s public key, an error message will be returned to the user and the communication will end. 
+</p>
+
+<p>In this way, even if the malicious file server steal the token and try to use it for logging into other servers, the authentication cannot be finished, because the destination field would not match. Recall that any modification to the Token is prevented by the signed hash, the malicious File Server cannot modify the token and change the destination field without breaking the signature. 
+</p>
+<!-- END CHANGES HERE -->
+    </section>
+    <section id="discussion">
+      <h2>Discussion</h2>
+<!-- BEGIN CHANGES HERE -->
+
+<p>Conclude with a paragraph or two discussing the interplay between your
+proposed mechanisms, and commenting on the design process that your group
+followed. Did you discuss other ideas that didn’t pan out before settling on the
+above-documented approach? Did you end up designing a really interesting
+protocol suite that addresses multiple threats at once? Use this space to show
+off your hard work!</p>
+
+<p>Finally, spend about one paragraph convincing me that your modified protocols
+still address the threats T1–T4 described in Phase 3 of the project.</p>
+
+<p>If your group did any extra credit, please discuss that in this section, as
+well.</p>
+
+<!-- END CHANGES HERE -->
+    </section>
+  </body>
+</html>
+

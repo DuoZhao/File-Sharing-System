@@ -1,0 +1,7 @@
+Once inside src/ folder,
+
+COMPILE: javac *.java
+
+If the jar file haven't been setup/installed:
+Compile with "javac -cp bcprov-ext-jdk15on-160.jar *.java"
+Run with "java -cp bcprov-ext-jdk15on-160.jar: RunGroupServer.java"
